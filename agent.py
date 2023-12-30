@@ -10,8 +10,27 @@ from IPython import display
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
 LR = 0.001
+plt.ion()
 
 
+# for plotting the results as it runs
+def plot(scores, mean_scores):
+    display.clear_output(wait=True)
+    display.display(plt.gcf())
+    plt.clf()
+    plt.title('Training...')
+    plt.xlabel('Number of Games')
+    plt.ylabel('Score')
+    plt.plot(scores)
+    plt.plot(mean_scores)
+    plt.ylim(ymin=0)
+    plt.text(len(scores) - 1, scores[-1], str(scores[-1]))
+    plt.text(len(mean_scores) - 1, mean_scores[-1], str(mean_scores[-1]))
+    plt.show(block=False)
+    plt.pause(.1)
+
+
+# I guess this is for setting up the env?
 class Agent:
 
     def __init__(self):
@@ -19,7 +38,7 @@ class Agent:
         self.epsilon = 0  # randomness
         self.gamma = 0.9  # discount rate
         self.memory = deque(maxlen=MAX_MEMORY)  # popleft()
-        self.model = Linear_QNet(11, 256, 3)
+        self.model = Linear_QNet(11, 256, 3) #first is inputs it takes, second is nodes in hidden layer, third is outputs it gives
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
     def get_state(self, game):
@@ -68,6 +87,19 @@ class Agent:
 
         return np.array(state, dtype=int)
 
+        """
+        [0, 0, 0,  # No immediate dangers
+        True,     # Moving RIGHT
+        False,    # Not moving LEFT
+        False,    # Not moving UP
+        False,    # Not moving DOWN
+        True,     # Food is to the left
+        False,    # Food is not to the right
+        False,    # Food is not above
+        False     # Food is not below
+        ]
+        """
+
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))  # popleft if MAX_MEMORY is reached
 
@@ -99,24 +131,6 @@ class Agent:
             final_move[move] = 1
 
         return final_move
-
-    plt.ion()
-
-
-def plot(scores, mean_scores):
-    display.clear_output(wait=True)
-    display.display(plt.gcf())
-    plt.clf()
-    plt.title('Training...')
-    plt.xlabel('Number of Games')
-    plt.ylabel('Score')
-    plt.plot(scores)
-    plt.plot(mean_scores)
-    plt.ylim(ymin=0)
-    plt.text(len(scores) - 1, scores[-1], str(scores[-1]))
-    plt.text(len(mean_scores) - 1, mean_scores[-1], str(mean_scores[-1]))
-    plt.show(block=False)
-    plt.pause(.1)
 
 
 def train():
