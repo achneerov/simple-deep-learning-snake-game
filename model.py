@@ -46,23 +46,31 @@ class QTrainer:  # hown the model will be trained.
 
         if len(state.shape) == 1:
             # (1, x)
-            state = torch.unsqueeze(state, 0)  # transforms tensor from 1d to 2d, basically each element becomes its own array with one element
-            next_state = torch.unsqueeze(next_state, 0)  # transforms tensor from 1d to 2d, basically each element becomes its own array with one element
-            action = torch.unsqueeze(action, 0)  # transforms tensor from 1d to 2d, basically each element becomes its own array with one element
-            reward = torch.unsqueeze(reward, 0)  # transforms tensor from 1d to 2d, basically each element becomes its own array with one element
+            state = torch.unsqueeze(state,
+                                    0)  # transforms tensor from 1d to 2d, basically each element becomes its own array with one element
+            next_state = torch.unsqueeze(next_state,
+                                         0)  # transforms tensor from 1d to 2d, basically each element becomes its own array with one element
+            action = torch.unsqueeze(action,
+                                     0)  # transforms tensor from 1d to 2d, basically each element becomes its own array with one element
+            reward = torch.unsqueeze(reward,
+                                     0)  # transforms tensor from 1d to 2d, basically each element becomes its own array with one element
             done = (done,)
 
-        pred = self.model(state) # gets predicted actions, state tensor passed through nn to get predicted Q vals.
-                                    # it does this by calling the forward method of linear_qnet class
-        target = pred.clone() #copies Q vals to target, the Q vals will be 3 total as there are three outputs
+        ### this block calcualtes what the best move was
+        pred = self.model(state)  # gets predicted actions, state tensor passed through nn to get predicted Q vals.
+        # it does this by calling the forward method of linear_qnet class
+        target = pred.clone()  # copies Q vals to target, the Q vals will be 3 total as there are three outputs
         for i in range(len(done)):
             Q_new = reward[i]
-            if not done[i]:
-                Q_new = reward[i] + self.gamma * torch.max(self.model(next_state[i]))
-            target[i][torch.argmax(action[i]).item()] = Q_new
+            if not done[i]:  # if element in done is false, i  think if game is done
+                Q_new = reward[i] + self.gamma * torch.max(
+                    self.model(next_state[i]))  # update Q by adding reward + gamma*nextBestMove
+            target[i][
+                torch.argmax(action[i]).item()] = Q_new  # find action with highest Q value, setting it to next move
+        ###
 
-        self.optimizer.zero_grad()
-        loss = self.criterion(target, pred)
-        loss.backward()
+        self.optimizer.zero_grad() #sets gradioents to 0 before computing gradients of next iteration, aka makes a clean slate from move to move
+        loss = self.criterion(target, pred) # compares pred Q vals and target Q vals
+        loss.backward() #calculates gradients (how much each parameter should change)
 
-        self.optimizer.step()
+        self.optimizer.step() #update parameters based on gradients
