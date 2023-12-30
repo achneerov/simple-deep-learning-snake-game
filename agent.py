@@ -7,8 +7,10 @@ from model import Linear_QNet, QTrainer
 import matplotlib.pyplot as plt
 from IPython import display
 
-MAX_MEMORY = 100_000
-BATCH_SIZE = 1000
+# each game has x moves, each move makes one experience
+MAX_MEMORY = 100_000  # max number of experiences in deque, experiences are a sequences that look like this (state, action, reward, next_state, done)
+BATCH_SIZE = 1000  # sample of 1000 experiences from MAX_MEMORY, this is done to break correlation, ie if the last few experiences are very similar
+                    # used for training long memory
 LR = 0.001
 plt.ion()
 
@@ -30,15 +32,15 @@ def plot(scores, mean_scores):
     plt.pause(.1)
 
 
-# I guess this is for setting up the env?
 class Agent:
 
     def __init__(self):
         self.n_games = 0
         self.epsilon = 0  # randomness
-        self.gamma = 0.9  # discount rate
-        self.memory = deque(maxlen=MAX_MEMORY)  # popleft()
-        self.model = Linear_QNet(11, 256, 3) #first is inputs it takes, second is nodes in hidden layer, third is outputs it gives
+        self.gamma = 0.9  # how long term it thinks, on 1.
+        self.memory = deque(maxlen=MAX_MEMORY)  # how much it can remember
+        self.model = Linear_QNet(11, 256,
+                                 3)  # first is inputs it takes, second is nodes in hidden layer, third is outputs it gives
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
     def get_state(self, game):
@@ -72,7 +74,7 @@ class Agent:
             (dir_r and game.is_collision(point_u)) or
             (dir_l and game.is_collision(point_d)),
 
-            # Move direction
+            # current direction
             dir_l,
             dir_r,
             dir_u,
@@ -109,26 +111,25 @@ class Agent:
         else:
             mini_sample = self.memory
 
-        states, actions, rewards, next_states, dones = zip(*mini_sample)
-        self.trainer.train_step(states, actions, rewards, next_states, dones)
-        # for state, action, reward, nexrt_state, done in mini_sample:
-        #    self.trainer.train_step(state, action, reward, next_state, done)
+        for state, action, reward, next_state, done in mini_sample:
+            self.trainer.train_step(state, action, reward, next_state, done)
 
     def train_short_memory(self, state, action, reward, next_state, done):
         self.trainer.train_step(state, action, reward, next_state, done)
 
-    def get_action(self, state):
-        # random moves: tradeoff exploration / exploitation
+    def get_action(self, state): #determine which action the agent should take
+        #starts off random, then relies more on learned as more games are played
+        #aka more explorative at the beggining.
         self.epsilon = 80 - self.n_games
         final_move = [0, 0, 0]
         if random.randint(0, 200) < self.epsilon:
             move = random.randint(0, 2)
             final_move[move] = 1
-        else:
-            state0 = torch.tensor(state, dtype=torch.float)
-            prediction = self.model(state0)
-            move = torch.argmax(prediction).item()
-            final_move[move] = 1
+        else: #at around 300 games it stops being random at all and only relies on learned policy
+            state0 = torch.tensor(state, dtype=torch.float) #make tensor
+            prediction = self.model(state0) # pass through nn
+            move = torch.argmax(prediction).item() #take best move
+            final_move[move] = 1 # make move by setting the 0 of the move direction to 1
 
         return final_move
 
