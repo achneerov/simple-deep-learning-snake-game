@@ -1,5 +1,6 @@
-#agent.py
+# agent.py
 
+import argparse
 import torch
 import random
 import numpy as np
@@ -8,26 +9,10 @@ from game import SnakeGameAI, Direction, Point
 from model import Linear_QNet, QTrainer
 import matplotlib.pyplot as plt
 from IPython import display
-from Settings import (
-    SETTINGS_MAX_MEMORY,
-    SETTINGS_BATCH_SIZE,
-    SETTINGS_LR,
-    SETTINGS_gamma,
-    SETTINGS_HIDDEN_LAYER_SIZE,
-    SETTINGS_RANDOM1,
-    SETTINGS_RANDOM2
-)
-
-# each game has x moves, each move makes one experience
-MAX_MEMORY = SETTINGS_MAX_MEMORY  # max number of experiences in deque, experiences are a sequences that look like this (state, action, reward, next_state, done)
-BATCH_SIZE = SETTINGS_BATCH_SIZE  # sample of 1000 experiences from MAX_MEMORY, this is done to break correlation, ie if the last few experiences are very similar
-# used for training long memory
-LR = SETTINGS_LR  # how slow it learns during training, lower is slower
-plt.ion()
 
 
-# for plotting the results as it runs
 def plot(scores, mean_scores):
+    plt.ion()
     display.clear_output(wait=True)
     display.display(plt.gcf())
     plt.clf()
@@ -44,15 +29,23 @@ def plot(scores, mean_scores):
 
 
 class Agent:
-
-    def __init__(self):
-        self.n_games = 0
-        self.epsilon = 0  # randomness
-        self.gamma = SETTINGS_gamma  # how long term it thinks, on 1.
-        self.memory = deque(maxlen=MAX_MEMORY)  # how much it can remember
-        self.model = Linear_QNet(11, SETTINGS_HIDDEN_LAYER_SIZE,
-                                 3)  # first is inputs it takes, second is nodes in hidden layer, third is outputs it gives
-        self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+    def __init__(self, settings):
+        self.n_games = settings['GAMES']
+        self.epsilon = settings['EPSILON']
+        self.gamma = settings['GAMMA']
+        self.memory = deque(maxlen=settings['MAX_MEMORY'])
+        self.model = Linear_QNet(settings['INPUT_LAYER_SIZE'], settings['HIDDEN_LAYER_SIZE'], settings['OUTPUT_LAYER_SIZE'])
+        self.trainer = QTrainer(self.model, lr=settings['LR'], gamma=self.gamma)
+        self.max_memory = settings['MAX_MEMORY']
+        self.batch_size = settings['BATCH_SIZE']
+        self.lr = settings['LR']
+        self.gamma = settings['GAMMA']
+        self.input_layer_size = settings['INPUT_LAYER_SIZE']
+        self.hidden_layer_size = settings['HIDDEN_LAYER_SIZE']
+        self.output_layer_size = settings['OUTPUT_LAYER_SIZE']
+        self.random1 = settings['RANDOM1']
+        self.random2 = settings['RANDOM2']
+        self.mode = settings['MODE']
 
     def get_state(self, game):
         head = game.snake[0]
@@ -100,25 +93,12 @@ class Agent:
 
         return np.array(state, dtype=int)
 
-        """
-        [0, 0, 0,  # No immediate dangers
-        True,     # Moving RIGHT
-        False,    # Not moving LEFT
-        False,    # Not moving UP
-        False,    # Not moving DOWN
-        True,     # Food is to the left
-        False,    # Food is not to the right
-        False,    # Food is not above
-        False     # Food is not below
-        ]
-        """
-
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))  # popleft if MAX_MEMORY is reached
 
     def train_long_memory(self):
-        if len(self.memory) > BATCH_SIZE:
-            mini_sample = random.sample(self.memory, BATCH_SIZE)  # list of tuples
+        if len(self.memory) > self.batch_size:
+            mini_sample = random.sample(self.memory, self.batch_size)  # list of tuples
         else:
             mini_sample = self.memory
 
@@ -131,9 +111,9 @@ class Agent:
     def get_action(self, state):  # determine which action the agent should take
         # starts off random, then relies more on learned as more games are played
         # aka more exploration at the beginning.
-        self.epsilon = SETTINGS_RANDOM1 - self.n_games
+        self.epsilon = self.random1 - self.n_games
         final_move = [0, 0, 0]
-        if random.randint(0, SETTINGS_RANDOM2) < self.epsilon:
+        if random.randint(0, self.random2) < self.epsilon:
             move = random.randint(0, 2)
             final_move[move] = 1
         else:  # at around 300 games it stops being random at all and only relies on learned policy
@@ -145,48 +125,94 @@ class Agent:
         return final_move
 
 
-def train():
-    plot_scores = []
-    plot_mean_scores = []
-    total_score = 0
-    record = 0
-    agent = Agent()
-    game = SnakeGameAI()
-    while True:
-        # get old state
-        state_old = agent.get_state(game)
+def main(settings):
+    max_memory = settings['MAX_MEMORY']
+    batch_size = settings['BATCH_SIZE']
+    lr = settings['LR']
+    gamma = settings['GAMMA']
+    input_layer_size = settings['INPUT_LAYER_SIZE']
+    hidden_layer_size = settings['HIDDEN_LAYER_SIZE']
+    output_layer_size = settings['OUTPUT_LAYER_SIZE']
+    random1 = settings['RANDOM1']
+    random2 = settings['RANDOM2']
+    mode = settings['MODE']
 
-        # get move
-        final_move = agent.get_action(state_old)
+    if mode == "NEW":
+        plot_scores = []
+        plot_mean_scores = []
+        total_score = 0
+        record = 0
+        agent = Agent(settings)
+        game = SnakeGameAI()
+        while True:
+            # get old state
+            state_old = agent.get_state(game)
 
-        # perform move and get new state
-        reward, done, score = game.play_step(final_move)
-        state_new = agent.get_state(game)
+            # get move
+            final_move = agent.get_action(state_old)
 
-        # train short memory
-        agent.train_short_memory(state_old, final_move, reward, state_new, done)
+            # perform move and get new state
+            reward, done, score = game.play_step(final_move)
+            state_new = agent.get_state(game)
 
-        # remember
-        agent.remember(state_old, final_move, reward, state_new, done)
+            # train short memory
+            agent.train_short_memory(state_old, final_move, reward, state_new, done)
 
-        if done:
-            # train long memory, plot result
-            game.reset()
-            agent.n_games += 1
-            agent.train_long_memory()
+            # remember
+            agent.remember(state_old, final_move, reward, state_new, done)
 
-            if score > record:
-                record = score
-                agent.model.save()
+            if done:
+                # train long memory, plot result
+                game.reset()
+                agent.n_games += 1
+                agent.train_long_memory()
 
-            print('Game', agent.n_games, 'Score', score, 'Record:', record)
+                if score > record:
+                    record = score
+                    agent.model.save(max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2)
 
-            plot_scores.append(score)
-            total_score += score
-            mean_score = total_score / agent.n_games
-            plot_mean_scores.append(mean_score)
-            plot(plot_scores, plot_mean_scores)
+                print('Game', agent.n_games, 'Score', score, 'Record:', record)
 
+                plot_scores.append(score)
+                total_score += score
+                mean_score = total_score / agent.n_games
+                plot_mean_scores.append(mean_score)
+                plot(plot_scores, plot_mean_scores)
+
+
+import argparse
 
 if __name__ == '__main__':
-    train()
+    parser = argparse.ArgumentParser(description='Agent settings')
+    parser.add_argument('--max_memory', type=int, default=100_000, help='Maximum number of experiences in deque')
+    parser.add_argument('--batch_size', type=int, default=1000, help='Sample size from MAX_MEMORY')
+    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
+    parser.add_argument('--gamma', type=float, default=0.9, help='Gamma value')
+    parser.add_argument('--input_layer_size', type=int, default=11, help='Input layer size')
+    parser.add_argument('--hidden_layer_size', type=int, default=256, help='Hidden layer size')
+    parser.add_argument('--output_layer_size', type=int, default=3, help='Output layer size')
+    parser.add_argument('--random1', type=int, default=80, help='Random value 1')
+    parser.add_argument('--random2', type=int, default=200, help='Random value 2')
+    parser.add_argument('--mode', type=str, default="NEW", help='Mode value')
+    parser.add_argument('--epsilon', type=float, default=0, help='Should be 0')
+    parser.add_argument('--games', type=int, default=0, help='Number of games')
+
+    args = parser.parse_args()
+
+    settings_dict = {
+        'MAX_MEMORY': args.max_memory,
+        'BATCH_SIZE': args.batch_size,
+        'LR': args.lr,
+        'GAMMA': args.gamma,
+        'INPUT_LAYER_SIZE': args.input_layer_size,
+        'HIDDEN_LAYER_SIZE': args.hidden_layer_size,
+        'OUTPUT_LAYER_SIZE': args.output_layer_size,
+        'RANDOM1': args.random1,
+        'RANDOM2': args.random2,
+        'MODE': args.mode,
+        'EPSILON': args.epsilon,
+        'GAMES': args.games
+    }
+
+
+    main(settings_dict)

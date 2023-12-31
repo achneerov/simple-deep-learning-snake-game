@@ -5,10 +5,15 @@ import torch.nn as nn  # contains classes to help build neural network
 import torch.optim as optim
 import torch.nn.functional as F
 import os
-from Settings import file_name_generator
 
+
+
+def file_name_generator(max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2):
+    filename = f"MM{max_memory}_BS{batch_size}_LR{lr}_gamma{gamma}_HLS{hidden_layer_size}_R1{random1}_R2{random2}.pth"
+    return filename
 
 # model and trainer template
+
 class Linear_QNet(nn.Module):  # base class for neural network modules
     def __init__(self, input_size, hidden_size, output_size):
         super().__init__()  # calls constructor from nn.module
@@ -22,8 +27,8 @@ class Linear_QNet(nn.Module):  # base class for neural network modules
         x = self.linear2(x)
         return x
 
-    def save(self):  # saves model to folder as a state dictionary, full of weights basically
-        file_name = file_name_generator()
+    def save(self, max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2):  # saves model to folder as a state dictionary, full of weights basically
+        file_name = file_name_generator(max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2)
         model_folder_path = './model'
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
