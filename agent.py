@@ -6,12 +6,21 @@ from game import SnakeGameAI, Direction, Point
 from model import Linear_QNet, QTrainer
 import matplotlib.pyplot as plt
 from IPython import display
+from Settings import (
+    SETTINGS_MAX_MEMORY,
+    SETTINGS_BATCH_SIZE,
+    SETTINGS_LR,
+    SETTINGS_gamma,
+    SETTINGS_HIDDEN_LAYER_SIZE,
+    SETTINGS_RANDOM1,
+    SETTINGS_RANDOM2
+)
 
 # each game has x moves, each move makes one experience
-MAX_MEMORY = 100_000  # max number of experiences in deque, experiences are a sequences that look like this (state, action, reward, next_state, done)
-BATCH_SIZE = 1000  # sample of 1000 experiences from MAX_MEMORY, this is done to break correlation, ie if the last few experiences are very similar
-                    # used for training long memory
-LR = 0.001
+MAX_MEMORY = SETTINGS_MAX_MEMORY  # max number of experiences in deque, experiences are a sequences that look like this (state, action, reward, next_state, done)
+BATCH_SIZE = SETTINGS_BATCH_SIZE  # sample of 1000 experiences from MAX_MEMORY, this is done to break correlation, ie if the last few experiences are very similar
+# used for training long memory
+LR = SETTINGS_LR  # how slow it learns during training, lower is slower
 plt.ion()
 
 
@@ -37,9 +46,9 @@ class Agent:
     def __init__(self):
         self.n_games = 0
         self.epsilon = 0  # randomness
-        self.gamma = 0.9  # how long term it thinks, on 1.
+        self.gamma = SETTINGS_gamma  # how long term it thinks, on 1.
         self.memory = deque(maxlen=MAX_MEMORY)  # how much it can remember
-        self.model = Linear_QNet(11, 256,
+        self.model = Linear_QNet(11, SETTINGS_HIDDEN_LAYER_SIZE,
                                  3)  # first is inputs it takes, second is nodes in hidden layer, third is outputs it gives
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
@@ -117,19 +126,19 @@ class Agent:
     def train_short_memory(self, state, action, reward, next_state, done):
         self.trainer.train_step(state, action, reward, next_state, done)
 
-    def get_action(self, state): #determine which action the agent should take
-        #starts off random, then relies more on learned as more games are played
-        #aka more explorative at the beggining.
-        self.epsilon = 80 - self.n_games
+    def get_action(self, state):  # determine which action the agent should take
+        # starts off random, then relies more on learned as more games are played
+        # aka more exploration at the beginning.
+        self.epsilon = SETTINGS_RANDOM1 - self.n_games
         final_move = [0, 0, 0]
-        if random.randint(0, 200) < self.epsilon:
+        if random.randint(0, SETTINGS_RANDOM2) < self.epsilon:
             move = random.randint(0, 2)
             final_move[move] = 1
-        else: #at around 300 games it stops being random at all and only relies on learned policy
-            state0 = torch.tensor(state, dtype=torch.float) #make tensor
-            prediction = self.model(state0) # pass through nn
-            move = torch.argmax(prediction).item() #take best move
-            final_move[move] = 1 # make move by setting the 0 of the move direction to 1
+        else:  # at around 300 games it stops being random at all and only relies on learned policy
+            state0 = torch.tensor(state, dtype=torch.float)  # make tensor
+            prediction = self.model(state0)  # pass through nn
+            move = torch.argmax(prediction).item()  # take best move
+            final_move[move] = 1  # make move by setting the 0 of the move direction to 1
 
         return final_move
 

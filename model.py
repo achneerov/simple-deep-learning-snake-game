@@ -28,7 +28,7 @@ class Linear_QNet(nn.Module):  # base class for neural network modules
         torch.save(self.state_dict(), file_name)
 
 
-class QTrainer:  # hown the model will be trained.
+class QTrainer:  # how the model will be trained.
     def __init__(self, model, lr, gamma):
         self.lr = lr  # size of steps taken toward the final solution, smaller means model will take longer to train.
         self.gamma = gamma  # used for balancing immediate rewards and future rewards. higher gamma is more far-sighted, lower gamma is short-sighted
