@@ -11,6 +11,13 @@ SETTINGS_HIDDEN_LAYER_SIZE = 256  # size of hidden second layer
 SETTINGS_RANDOM1 = 80  # in self.epsilon = SETTINGS_RANDOM1 - self.n_games
 SETTINGS_RANDOM2 = 200  # in if random.randint(0, SETTINGS_RANDOM2) < self.epsilon: move = random.randint(0, 2), final_move[move] = 1
 
+MODE = 0  # 0 is to generate a model, 1 is to continue training a model
+
+
+def file_name_generator():
+    filename = f"MM{SETTINGS_MAX_MEMORY}_BS{SETTINGS_BATCH_SIZE}_LR{SETTINGS_LR}_gamma{SETTINGS_gamma}_HLS{SETTINGS_HIDDEN_LAYER_SIZE}_R1{SETTINGS_RANDOM1}_R2{SETTINGS_RANDOM2}.pth"
+    return filename
+
 
 def run_agent():
     try:

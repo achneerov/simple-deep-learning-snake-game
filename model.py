@@ -1,8 +1,11 @@
+#model.py
+
 import torch
 import torch.nn as nn  # contains classes to help build neural network
 import torch.optim as optim
 import torch.nn.functional as F
 import os
+from Settings import file_name_generator
 
 
 # model and trainer template
@@ -19,7 +22,8 @@ class Linear_QNet(nn.Module):  # base class for neural network modules
         x = self.linear2(x)
         return x
 
-    def save(self, file_name='model.pth'):  # saves model to folder as a state dictionary, full of weights basically
+    def save(self):  # saves model to folder as a state dictionary, full of weights basically
+        file_name = file_name_generator()
         model_folder_path = './model'
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
@@ -69,8 +73,8 @@ class QTrainer:  # how the model will be trained.
                 torch.argmax(action[i]).item()] = Q_new  # find action with highest Q value, setting it to next move
         ###
 
-        self.optimizer.zero_grad() #sets gradioents to 0 before computing gradients of next iteration, aka makes a clean slate from move to move
-        loss = self.criterion(target, pred) # compares pred Q vals and target Q vals
-        loss.backward() #calculates gradients (how much each parameter should change)
+        self.optimizer.zero_grad()  # sets gradioents to 0 before computing gradients of next iteration, aka makes a clean slate from move to move
+        loss = self.criterion(target, pred)  # compares pred Q vals and target Q vals
+        loss.backward()  # calculates gradients (how much each parameter should change)
 
-        self.optimizer.step() #update parameters based on gradients
+        self.optimizer.step()  # update parameters based on gradients
