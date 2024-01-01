@@ -5,11 +5,14 @@ import torch
 import random
 import numpy as np
 from collections import deque
+
 from game import SnakeGameAI, Direction, Point
-from model import Linear_QNet, QTrainer
+from model import Linear_QNet, QTrainer, load_model
 import matplotlib.pyplot as plt
 from IPython import display
 import re
+import pickle
+import os
 
 
 def plot(scores, mean_scores):
@@ -30,12 +33,11 @@ def plot(scores, mean_scores):
 
 
 class Agent:
-    def __init__(self, settings):
+    def __init__(self, settings, memory, model):
         self.n_games = settings['GAMES']
         self.gamma = settings['GAMMA']
-        self.memory = deque(maxlen=settings['MAX_MEMORY'])
-        self.model = Linear_QNet(settings['INPUT_LAYER_SIZE'], settings['HIDDEN_LAYER_SIZE'],
-                                 settings['OUTPUT_LAYER_SIZE'])
+        self.memory = memory
+        self.model = model
         self.trainer = QTrainer(self.model, lr=settings['LR'], gamma=self.gamma)
         self.max_memory = settings['MAX_MEMORY']
         self.batch_size = settings['BATCH_SIZE']
@@ -126,60 +128,105 @@ class Agent:
         return final_move
 
 
-def main(settings):
-    max_memory = settings['MAX_MEMORY']
-    batch_size = settings['BATCH_SIZE']
-    lr = settings['LR']
-    gamma = settings['GAMMA']
-    input_layer_size = settings['INPUT_LAYER_SIZE']
-    hidden_layer_size = settings['HIDDEN_LAYER_SIZE']
-    output_layer_size = settings['OUTPUT_LAYER_SIZE']
-    random1 = settings['RANDOM1']
-    random2 = settings['RANDOM2']
-    mode = settings['MODE']
+def load_memory(settings):
+    memory_file_name = settings['FILE_NAME'] + "_memory.txt"
+    # Create the full path to the memory file
+    memory_file_path = os.path.join('./model', memory_file_name)
+    if os.path.exists(memory_file_path):
+        # Deserialize the list from the .txt file
+        with open(memory_file_path, 'rb') as f:
+            memory_list = pickle.load(f)
 
-    if mode == "NEW":
+        # Convert the list back to a deque
+        memory = deque(memory_list)
+    else:
+        print(f"Memory file {memory_file_path} not found. Starting with a fresh memory.")
+        memory = deque(maxlen=settings['MAX_MEMORY'])
+    return memory
+
+
+def load_plot(settings):
+    # Construct the file name for the plot data based on the FILE_NAME from settings
+    plot_file_name = settings['FILE_NAME'] + "_plot.txt"
+
+    # Create the full path to the plot data file
+    plot_file_path = os.path.join('./model', plot_file_name)
+
+    if os.path.exists(plot_file_path):
+        # Deserialize the plot data dictionary from the .txt file
+        with open(plot_file_path, 'rb') as f:
+            plot_data = pickle.load(f)
+
+        # Extract individual plot data components
+        plot_scores = plot_data['plot_scores']
+        plot_mean_scores = plot_data['plot_mean_scores']
+        total_score = plot_data['total_score']
+        record = plot_data['record']
+    else:
+        print(f"Plot file {plot_file_path} not found. Starting with default plot data.")
+        # Initialize default values or handle as per your requirements
         plot_scores = []
         plot_mean_scores = []
         total_score = 0
         record = 0
-        agent = Agent(settings)
-        game = SnakeGameAI()
-        while True:
-            # get old state
-            state_old = agent.get_state(game)
 
-            # get move
-            final_move = agent.get_action(state_old)
+    return plot_scores, plot_mean_scores, total_score, record
 
-            # perform move and get new state
-            reward, done, score = game.play_step(final_move)
-            state_new = agent.get_state(game)
 
-            # train short memory
-            agent.train_short_memory(state_old, final_move, reward, state_new, done)
+def main(settings):
+    mode = settings['MODE']
 
-            # remember
-            agent.remember(state_old, final_move, reward, state_new, done)
+    if mode == "CONTINUE":
+        memory = load_memory(settings)
+        plot_scores, plot_mean_scores, total_score, record = load_plot(settings)
+        model = load_model(settings)
 
-            if done:
-                # train long memory, plot result
-                game.reset()
-                agent.n_games += 1
-                agent.train_long_memory()
 
-                if score > record:
-                    record = score
-                    agent.model.save(settings,
-                                     len(plot_scores))
+    else:  # if mode == "NEW":
+        memory = deque(maxlen=settings['MAX_MEMORY'])
+        plot_scores = []
+        plot_mean_scores = []
+        total_score = 0
+        record = 0
+        model = Linear_QNet(settings['INPUT_LAYER_SIZE'], settings['HIDDEN_LAYER_SIZE'], settings['OUTPUT_LAYER_SIZE'])
 
-                print('Game', agent.n_games, 'Score', score, 'Record:', record)
+    agent = Agent(settings, memory, model)
+    game = SnakeGameAI()
+    while True:
+        # get old state
+        state_old = agent.get_state(game)
 
-                plot_scores.append(score)
-                total_score += score
-                mean_score = total_score / agent.n_games
-                plot_mean_scores.append(mean_score)
-                plot(plot_scores, plot_mean_scores)
+        # get move
+        final_move = agent.get_action(state_old)
+
+        # perform move and get new state
+        reward, done, score = game.play_step(final_move)
+        state_new = agent.get_state(game)
+
+        # train short memory
+        agent.train_short_memory(state_old, final_move, reward, state_new, done)
+
+        # remember
+        agent.remember(state_old, final_move, reward, state_new, done)
+
+        if done:
+            # train long memory, plot result
+            game.reset()
+            agent.n_games += 1
+            agent.train_long_memory()
+
+            if score > record:
+                record = score
+                agent.model.save(settings, len(plot_scores), agent.memory, plot_scores, plot_mean_scores, total_score,
+                                 record)
+
+            print('Game', agent.n_games, 'Score', score, 'Record:', record)
+
+            plot_scores.append(score)
+            total_score += score
+            mean_score = total_score / agent.n_games
+            plot_mean_scores.append(mean_score)
+            plot(plot_scores, plot_mean_scores)
 
 
 if __name__ == '__main__':
@@ -193,8 +240,8 @@ if __name__ == '__main__':
     parser.add_argument('--output_layer_size', type=int, default=3, help='Output layer size')
     parser.add_argument('--random1', type=int, default=80, help='Random value 1')
     parser.add_argument('--random2', type=int, default=200, help='Random value 2')
-    parser.add_argument('--mode', type=str, default="NEW", help='Mode value')
-    parser.add_argument('--file_name', type=str, default='MM100000_BS1000_LR0.001_gamma0.9_HLS256_R180_R2200',
+    parser.add_argument('--mode', type=str, default="CONTINUE", help='Mode value, NEW, CONTINUE, VIEW')
+    parser.add_argument('--file_name', type=str, default='MM100000_BS1000_LR0.001_gamma0.9_HLS384_R180_R2200_GAMES57',
                         help='File name for saving/loading')
 
     args = parser.parse_args()
