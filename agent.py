@@ -9,6 +9,7 @@ from game import SnakeGameAI, Direction, Point
 from model import Linear_QNet, QTrainer
 import matplotlib.pyplot as plt
 from IPython import display
+import re
 
 
 def plot(scores, mean_scores):
@@ -31,10 +32,10 @@ def plot(scores, mean_scores):
 class Agent:
     def __init__(self, settings):
         self.n_games = settings['GAMES']
-        self.epsilon = settings['EPSILON']
         self.gamma = settings['GAMMA']
         self.memory = deque(maxlen=settings['MAX_MEMORY'])
-        self.model = Linear_QNet(settings['INPUT_LAYER_SIZE'], settings['HIDDEN_LAYER_SIZE'], settings['OUTPUT_LAYER_SIZE'])
+        self.model = Linear_QNet(settings['INPUT_LAYER_SIZE'], settings['HIDDEN_LAYER_SIZE'],
+                                 settings['OUTPUT_LAYER_SIZE'])
         self.trainer = QTrainer(self.model, lr=settings['LR'], gamma=self.gamma)
         self.max_memory = settings['MAX_MEMORY']
         self.batch_size = settings['BATCH_SIZE']
@@ -169,7 +170,8 @@ def main(settings):
 
                 if score > record:
                     record = score
-                    agent.model.save(max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2)
+                    agent.model.save(settings,
+                                     len(plot_scores))
 
                 print('Game', agent.n_games, 'Score', score, 'Record:', record)
 
@@ -180,8 +182,6 @@ def main(settings):
                 plot(plot_scores, plot_mean_scores)
 
 
-import argparse
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Agent settings')
     parser.add_argument('--max_memory', type=int, default=100_000, help='Maximum number of experiences in deque')
@@ -189,15 +189,21 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--gamma', type=float, default=0.9, help='Gamma value')
     parser.add_argument('--input_layer_size', type=int, default=11, help='Input layer size')
-    parser.add_argument('--hidden_layer_size', type=int, default=256, help='Hidden layer size')
+    parser.add_argument('--hidden_layer_size', type=int, default=384, help='Hidden layer size')
     parser.add_argument('--output_layer_size', type=int, default=3, help='Output layer size')
     parser.add_argument('--random1', type=int, default=80, help='Random value 1')
     parser.add_argument('--random2', type=int, default=200, help='Random value 2')
     parser.add_argument('--mode', type=str, default="NEW", help='Mode value')
-    parser.add_argument('--epsilon', type=float, default=0, help='Should be 0')
-    parser.add_argument('--games', type=int, default=0, help='Number of games')
+    parser.add_argument('--file_name', type=str, default='MM100000_BS1000_LR0.001_gamma0.9_HLS256_R180_R2200',
+                        help='File name for saving/loading')
 
     args = parser.parse_args()
+
+    if args.mode == 'NEW':
+        games = 0
+    else:
+        games_match = re.search(r'GAMES(\d+)_', args.file_name)
+        games = int(games_match.group(1)) if games_match else 0
 
     settings_dict = {
         'MAX_MEMORY': args.max_memory,
@@ -210,9 +216,8 @@ if __name__ == '__main__':
         'RANDOM1': args.random1,
         'RANDOM2': args.random2,
         'MODE': args.mode,
-        'EPSILON': args.epsilon,
-        'GAMES': args.games
+        'GAMES': games,
+        'FILE_NAME': args.file_name
     }
-
 
     main(settings_dict)

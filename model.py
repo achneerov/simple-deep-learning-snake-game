@@ -1,4 +1,4 @@
-#model.py
+# model.py
 
 import torch
 import torch.nn as nn  # contains classes to help build neural network
@@ -7,10 +7,10 @@ import torch.nn.functional as F
 import os
 
 
-
-def file_name_generator(max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2):
-    filename = f"MM{max_memory}_BS{batch_size}_LR{lr}_gamma{gamma}_HLS{hidden_layer_size}_R1{random1}_R2{random2}.pth"
+def file_name_generator(max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2, games):
+    filename = f"MM{max_memory}_BS{batch_size}_LR{lr}_gamma{gamma}_HLS{hidden_layer_size}_R1{random1}_R2{random2}_GAMES{games}.pth"
     return filename
+
 
 # model and trainer template
 
@@ -27,8 +27,10 @@ class Linear_QNet(nn.Module):  # base class for neural network modules
         x = self.linear2(x)
         return x
 
-    def save(self, max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2):  # saves model to folder as a state dictionary, full of weights basically
-        file_name = file_name_generator(max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2)
+    def save(self, settings, games):  # saves model to folder as a state dictionary, full of weights basically
+        file_name = file_name_generator(settings['MAX_MEMORY'], settings['BATCH_SIZE'], settings['LR'],
+                                        settings['GAMMA'], settings['HIDDEN_LAYER_SIZE'], settings['RANDOM1'],
+                                        settings['RANDOM2'], games)
         model_folder_path = './model'
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)

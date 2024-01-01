@@ -27,12 +27,12 @@ BLUE2 = (0, 100, 255)
 BLACK = (0, 0, 0)
 
 BLOCK_SIZE = 20
-SPEED = 40
+SPEED = 120
 
 
 class SnakeGameAI:
 
-    def __init__(self, w=640, h=480):
+    def __init__(self, w=800, h=600):
         self.w = w
         self.h = h
         # init display
