@@ -133,7 +133,7 @@ class Agent:
 def load_memory(settings):
     memory_file_name = settings['FILE_NAME'] + ".pth_memory.txt"
     # Create the full path to the memory file
-    memory_file_path = os.path.join('./model', memory_file_name)
+    memory_file_path = os.path.join('./models', str(settings['ID']), memory_file_name)
     if os.path.exists(memory_file_path):
         # Deserialize the list from the .txt file
         with open(memory_file_path, 'rb') as f:
@@ -152,7 +152,7 @@ def load_plot(settings):
     plot_file_name = settings['FILE_NAME'] + ".pth_plot.txt"
 
     # Create the full path to the plot data file
-    plot_file_path = os.path.join('./model', plot_file_name)
+    plot_file_path = os.path.join('./models', str(settings['ID']), plot_file_name)
 
     if os.path.exists(plot_file_path):
         # Deserialize the plot data dictionary from the .txt file
@@ -183,6 +183,13 @@ def main(settings):
         plot_scores, plot_mean_scores, total_score, record = load_plot(settings)
         model = load_model(settings)
 
+    elif mode == "VIEW":
+        model = load_model(settings)
+        memory = deque(maxlen=settings['MAX_MEMORY'])
+        plot_scores = []
+        plot_mean_scores = []
+        total_score = 0
+        record = 0
 
     else:  # if mode == "NEW":
         memory = deque(maxlen=settings['MAX_MEMORY'])
@@ -205,29 +212,35 @@ def main(settings):
         reward, done, score = game.play_step(final_move)
         state_new = agent.get_state(game)
 
-        # train short memory
-        agent.train_short_memory(state_old, final_move, reward, state_new, done)
+        if mode != "VIEW":
 
-        # remember
-        agent.remember(state_old, final_move, reward, state_new, done)
+            # train short memory
+            agent.train_short_memory(state_old, final_move, reward, state_new, done)
+
+            # remember
+            agent.remember(state_old, final_move, reward, state_new, done)
 
         if done:
             # train long memory, plot result
             game.reset()
             agent.n_games += 1
-            agent.train_long_memory()
+            if mode != "VIEW":
+                agent.train_long_memory()
 
-            if score > record:
-                record = score
-                settings['GAMES'] = agent.n_games
-                agent.model.save(settings, agent.memory, plot_scores, plot_mean_scores, total_score,
-                                 record)
+                if score > record:
+                    record = score
+                    settings['GAMES'] = agent.n_games
+                    agent.model.save(settings, agent.memory, plot_scores, plot_mean_scores, total_score,
+                                     record)
 
             print('Game', agent.n_games, 'Score', score, 'Record:', record)
 
             plot_scores.append(score)
             total_score += score
-            mean_score = total_score / agent.n_games
+            if mode != 'VIEW':
+                mean_score = total_score / agent.n_games
+            else:
+                mean_score = total_score / (agent.n_games - games)
             plot_mean_scores.append(mean_score)
             plot(plot_scores, plot_mean_scores)
 
@@ -243,22 +256,27 @@ if __name__ == '__main__':
     parser.add_argument('--output_layer_size', type=int, default=3, help='Output layer size')
     parser.add_argument('--random1', type=int, default=80, help='Random value 1')
     parser.add_argument('--random2', type=int, default=200, help='Random value 2')
-    parser.add_argument('--mode', type=str, default="NEW", help='Mode value, NEW, CONTINUE, VIEW')
+    parser.add_argument('--mode', type=str, default="CONTINUE", help='Mode value, NEW, CONTINUE, VIEW')
     parser.add_argument('--file_name', type=str,
-                        default='MM100000_BS1000_LR0.001_gamma0.9_HLS384_R180_R2200_GAMES87_ID36857',
+                        default='MM100000_BS1000_LR0.001_gamma0.9_HLS384_R180_R2200_GAMES4_ID75542',
                         help='File name for saving/loading')
 
     args = parser.parse_args()
 
-    if args.mode == 'NEW':
-        games = 0
-        seed = int(time.time())  # Get current time as an integer for seed
-        ID = random.randint(1, 100_000)
-    else:
+    if args.mode == 'CONTINUE':
         games_match = re.search(r'_GAMES(\d+)_', args.file_name)
         games = int(games_match.group(1)) if games_match else print("couldnt find GAMES in file name")
         ID_match = re.search(r'_ID(\d+)', args.file_name)
         ID = int(ID_match.group(1)) if ID_match else print("couldnt find ID in file name")
+    elif args.mode == 'VIEW':
+        games_match = re.search(r'_GAMES(\d+)_', args.file_name)
+        games = int(games_match.group(1)) if games_match else print("couldnt find GAMES in file name")
+        ID_match = re.search(r'_ID(\d+)', args.file_name)
+        ID = int(ID_match.group(1)) if ID_match else print("couldnt find ID in file name")
+    else: #args.mode == 'NEW':
+        games = 0
+        seed = int(time.time())  # Get current time as an integer for seed
+        ID = random.randint(1, 100_000)
 
     settings_dict = {
         'MAX_MEMORY': args.max_memory,

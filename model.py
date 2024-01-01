@@ -6,6 +6,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import os
 import pickle
+from os.path import join
 
 
 def file_name_generator(max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2, games, ID):
@@ -32,7 +33,7 @@ class Linear_QNet(nn.Module):  # base class for neural network modules
         file_name = file_name_generator(settings['MAX_MEMORY'], settings['BATCH_SIZE'], settings['LR'],
                                         settings['GAMMA'], settings['HIDDEN_LAYER_SIZE'], settings['RANDOM1'],
                                         settings['RANDOM2'], settings['GAMES'], settings['ID'])
-        model_folder_path = './model'
+        model_folder_path = join('./models', str(settings['ID']))  # Added closing parenthesis
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
 
@@ -57,17 +58,18 @@ class Linear_QNet(nn.Module):  # base class for neural network modules
         with open(plot_file_name, 'wb') as f:
             pickle.dump(plot_data, f)
 
+
 def load_model(settings):
     file_name = settings['FILE_NAME']
     input_size = settings['INPUT_LAYER_SIZE']
     hidden_size = settings['HIDDEN_LAYER_SIZE']
     output_size = settings['OUTPUT_LAYER_SIZE']
 
-    # Create an instance of the Linear_QNet model
     model = Linear_QNet(input_size, hidden_size, output_size)
 
     # Define the path to the .pth file
-    file_path = f"./model/{file_name}.pth"
+    file_path = os.path.join('./models', str(settings['ID']), file_name)
+
 
     # Check if the file exists
     if os.path.exists(file_path):
@@ -78,10 +80,6 @@ def load_model(settings):
         print(f"Error: Model file {file_path} not found.")
 
     return model
-
-
-
-
 
 
 class QTrainer:  # how the model will be trained.
