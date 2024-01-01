@@ -243,8 +243,9 @@ if __name__ == '__main__':
     parser.add_argument('--output_layer_size', type=int, default=3, help='Output layer size')
     parser.add_argument('--random1', type=int, default=80, help='Random value 1')
     parser.add_argument('--random2', type=int, default=200, help='Random value 2')
-    parser.add_argument('--mode', type=str, default="CONTINUE", help='Mode value, NEW, CONTINUE, VIEW')
-    parser.add_argument('--file_name', type=str, default='MM100000_BS1000_LR0.001_gamma0.9_HLS384_R180_R2200_GAMES87_ID36857',
+    parser.add_argument('--mode', type=str, default="NEW", help='Mode value, NEW, CONTINUE, VIEW')
+    parser.add_argument('--file_name', type=str,
+                        default='MM100000_BS1000_LR0.001_gamma0.9_HLS384_R180_R2200_GAMES87_ID36857',
                         help='File name for saving/loading')
 
     args = parser.parse_args()
