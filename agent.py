@@ -1,6 +1,8 @@
 # agent.py
 
 import argparse
+import time
+
 import torch
 import random
 import numpy as np
@@ -129,7 +131,7 @@ class Agent:
 
 
 def load_memory(settings):
-    memory_file_name = settings['FILE_NAME'] + "_memory.txt"
+    memory_file_name = settings['FILE_NAME'] + ".pth_memory.txt"
     # Create the full path to the memory file
     memory_file_path = os.path.join('./model', memory_file_name)
     if os.path.exists(memory_file_path):
@@ -147,7 +149,7 @@ def load_memory(settings):
 
 def load_plot(settings):
     # Construct the file name for the plot data based on the FILE_NAME from settings
-    plot_file_name = settings['FILE_NAME'] + "_plot.txt"
+    plot_file_name = settings['FILE_NAME'] + ".pth_plot.txt"
 
     # Create the full path to the plot data file
     plot_file_path = os.path.join('./model', plot_file_name)
@@ -217,7 +219,8 @@ def main(settings):
 
             if score > record:
                 record = score
-                agent.model.save(settings, len(plot_scores), agent.memory, plot_scores, plot_mean_scores, total_score,
+                settings['GAMES'] = agent.n_games
+                agent.model.save(settings, agent.memory, plot_scores, plot_mean_scores, total_score,
                                  record)
 
             print('Game', agent.n_games, 'Score', score, 'Record:', record)
@@ -241,16 +244,20 @@ if __name__ == '__main__':
     parser.add_argument('--random1', type=int, default=80, help='Random value 1')
     parser.add_argument('--random2', type=int, default=200, help='Random value 2')
     parser.add_argument('--mode', type=str, default="CONTINUE", help='Mode value, NEW, CONTINUE, VIEW')
-    parser.add_argument('--file_name', type=str, default='MM100000_BS1000_LR0.001_gamma0.9_HLS384_R180_R2200_GAMES57',
+    parser.add_argument('--file_name', type=str, default='MM100000_BS1000_LR0.001_gamma0.9_HLS384_R180_R2200_GAMES87_ID36857',
                         help='File name for saving/loading')
 
     args = parser.parse_args()
 
     if args.mode == 'NEW':
         games = 0
+        seed = int(time.time())  # Get current time as an integer for seed
+        ID = random.randint(1, 100_000)
     else:
-        games_match = re.search(r'GAMES(\d+)_', args.file_name)
-        games = int(games_match.group(1)) if games_match else 0
+        games_match = re.search(r'_GAMES(\d+)_', args.file_name)
+        games = int(games_match.group(1)) if games_match else print("couldnt find GAMES in file name")
+        ID_match = re.search(r'_ID(\d+)', args.file_name)
+        ID = int(ID_match.group(1)) if ID_match else print("couldnt find ID in file name")
 
     settings_dict = {
         'MAX_MEMORY': args.max_memory,
@@ -263,8 +270,9 @@ if __name__ == '__main__':
         'RANDOM1': args.random1,
         'RANDOM2': args.random2,
         'MODE': args.mode,
+        'FILE_NAME': args.file_name,
         'GAMES': games,
-        'FILE_NAME': args.file_name
+        'ID': ID
     }
 
     main(settings_dict)

@@ -8,8 +8,8 @@ import os
 import pickle
 
 
-def file_name_generator(max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2, games):
-    filename = f"MM{max_memory}_BS{batch_size}_LR{lr}_gamma{gamma}_HLS{hidden_layer_size}_R1{random1}_R2{random2}_GAMES{games}.pth"
+def file_name_generator(max_memory, batch_size, lr, gamma, hidden_layer_size, random1, random2, games, ID):
+    filename = f"MM{max_memory}_BS{batch_size}_LR{lr}_gamma{gamma}_HLS{hidden_layer_size}_R1{random1}_R2{random2}_GAMES{games}_ID{ID}.pth"
     return filename
 
 
@@ -28,10 +28,10 @@ class Linear_QNet(nn.Module):  # base class for neural network modules
         x = self.linear2(x)
         return x
 
-    def save(self, settings, games, memory, plot_scores, plot_mean_scores, total_score, record):
+    def save(self, settings, memory, plot_scores, plot_mean_scores, total_score, record):
         file_name = file_name_generator(settings['MAX_MEMORY'], settings['BATCH_SIZE'], settings['LR'],
                                         settings['GAMMA'], settings['HIDDEN_LAYER_SIZE'], settings['RANDOM1'],
-                                        settings['RANDOM2'], games)
+                                        settings['RANDOM2'], settings['GAMES'], settings['ID'])
         model_folder_path = './model'
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
@@ -63,19 +63,6 @@ def load_model(settings):
     hidden_size = settings['HIDDEN_LAYER_SIZE']
     output_size = settings['OUTPUT_LAYER_SIZE']
 
-
-    """
-    Load the model from a .pth file.
-
-    Args:
-    - file_name (str): Name of the file to load the model from (without the .pth extension).
-    - input_size (int): Size of the input layer.
-    - hidden_size (int): Size of the hidden layer.
-    - output_size (int): Size of the output layer.
-
-    Returns:
-    - model (Linear_QNet): Loaded model instance.
-    """
     # Create an instance of the Linear_QNet model
     model = Linear_QNet(input_size, hidden_size, output_size)
 
@@ -92,13 +79,6 @@ def load_model(settings):
 
     return model
 
-# Example usage:
-# settings = {'FILE_NAME': 'MM100000_BS1000_LR0.001_gamma0.9_HLS384_R1random1_R2random2_GAMES6'}
-# file_name = settings['FILE_NAME']
-# input_size = 11  # Example input size
-# hidden_size = 384  # Example hidden layer size
-# output_size = 3  # Example output size
-# model = load_model(file_name, input_size, hidden_size, output_size)
 
 
 
