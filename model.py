@@ -61,6 +61,7 @@ class Linear_QNet(nn.Module):  # base class for neural network modules
 
 def load_model(settings):
     file_name = settings['FILE_NAME']
+    file_name = file_name + '.pth'
     input_size = settings['INPUT_LAYER_SIZE']
     hidden_size = settings['HIDDEN_LAYER_SIZE']
     output_size = settings['OUTPUT_LAYER_SIZE']

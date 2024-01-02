@@ -52,12 +52,12 @@ class Agent:
         self.random2 = settings['RANDOM2']
         self.mode = settings['MODE']
 
-    def get_state(self, game):
-        head = game.snake[0]
-        point_l = Point(head.x - 20, head.y)
-        point_r = Point(head.x + 20, head.y)
-        point_u = Point(head.x, head.y - 20)
-        point_d = Point(head.x, head.y + 20)
+    def get_state(self, game, block_size):
+        head = game.snake[0]  # point in x,y form of head
+        point_l = Point(head.x - block_size, head.y)
+        point_r = Point(head.x + block_size, head.y)
+        point_u = Point(head.x, head.y - block_size)
+        point_d = Point(head.x, head.y + block_size)
 
         dir_l = game.direction == Direction.LEFT
         dir_r = game.direction == Direction.RIGHT
@@ -200,20 +200,19 @@ def main(settings):
         model = Linear_QNet(settings['INPUT_LAYER_SIZE'], settings['HIDDEN_LAYER_SIZE'], settings['OUTPUT_LAYER_SIZE'])
 
     agent = Agent(settings, memory, model)
-    game = SnakeGameAI()
+    game = SnakeGameAI(settings['BLOCK_SIZE'])
     while True:
         # get old state
-        state_old = agent.get_state(game)
+        state_old = agent.get_state(game, settings['BLOCK_SIZE'])
 
         # get move
         final_move = agent.get_action(state_old)
 
         # perform move and get new state
         reward, done, score = game.play_step(final_move)
-        state_new = agent.get_state(game)
+        state_new = agent.get_state(game, settings['BLOCK_SIZE'])
 
         if mode != "VIEW":
-
             # train short memory
             agent.train_short_memory(state_old, final_move, reward, state_new, done)
 
@@ -224,8 +223,10 @@ def main(settings):
             # train long memory, plot result
             game.reset()
             agent.n_games += 1
+
             if mode != "VIEW":
                 agent.train_long_memory()
+                memory_usage = (len(agent.memory) / settings['MAX_MEMORY']) * 100
 
                 if score > record:
                     record = score
@@ -233,7 +234,7 @@ def main(settings):
                     agent.model.save(settings, agent.memory, plot_scores, plot_mean_scores, total_score,
                                      record)
 
-            print('Game', agent.n_games, 'Score', score, 'Record:', record)
+                print('Game', agent.n_games, 'Score', score, 'Record:', record, 'Memory Usage on 100:', memory_usage, 'Random Move %', agent.epsilon / 200)
 
             plot_scores.append(score)
             total_score += score
@@ -252,14 +253,15 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--gamma', type=float, default=0.9, help='Gamma value')
     parser.add_argument('--input_layer_size', type=int, default=11, help='Input layer size')
-    parser.add_argument('--hidden_layer_size', type=int, default=384, help='Hidden layer size')
+    parser.add_argument('--hidden_layer_size', type=int, default=2048, help='Hidden layer size')
     parser.add_argument('--output_layer_size', type=int, default=3, help='Output layer size')
     parser.add_argument('--random1', type=int, default=80, help='Random value 1')
     parser.add_argument('--random2', type=int, default=200, help='Random value 2')
-    parser.add_argument('--mode', type=str, default="CONTINUE", help='Mode value, NEW, CONTINUE, VIEW')
+    parser.add_argument('--mode', type=str, default="NEW", help='Mode value, NEW, CONTINUE, VIEW')
     parser.add_argument('--file_name', type=str,
-                        default='MM100000_BS1000_LR0.001_gamma0.9_HLS384_R180_R2200_GAMES4_ID75542',
+                        default='MM100000_BS1000_LR0.001_gamma0.9_HLS128_R180_R2200_GAMES305_ID92935',
                         help='File name for saving/loading')
+    parser.add_argument('--block_size', type=int, default=100, help='size of block in pixels')
 
     args = parser.parse_args()
 
@@ -273,7 +275,7 @@ if __name__ == '__main__':
         games = int(games_match.group(1)) if games_match else print("couldnt find GAMES in file name")
         ID_match = re.search(r'_ID(\d+)', args.file_name)
         ID = int(ID_match.group(1)) if ID_match else print("couldnt find ID in file name")
-    else: #args.mode == 'NEW':
+    else:  # args.mode == 'NEW':
         games = 0
         seed = int(time.time())  # Get current time as an integer for seed
         ID = random.randint(1, 100_000)
@@ -291,7 +293,8 @@ if __name__ == '__main__':
         'MODE': args.mode,
         'FILE_NAME': args.file_name,
         'GAMES': games,
-        'ID': ID
+        'ID': ID,
+        'BLOCK_SIZE': args.block_size
     }
 
     main(settings_dict)
