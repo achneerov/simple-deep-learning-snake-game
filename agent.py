@@ -1,23 +1,27 @@
 # agent.py
-
-import argparse
-import time
-
 import torch
 import random
 import numpy as np
 from collections import deque
-
 from game import SnakeGameAI, Direction, Point
 from model import Linear_QNet, QTrainer, load_model
 import matplotlib.pyplot as plt
 from IPython import display
-import re
 import pickle
 import os
 
 
 def plot(scores, mean_scores):
+    """
+    Plots the training progress with game scores and mean scores over time.
+
+    Args:
+        scores (list): List of individual game scores.
+        mean_scores (list): List of mean scores over multiple games.
+
+    Returns:
+        None
+    """
     plt.ion()
     display.clear_output(wait=True)
     display.display(plt.gcf())
@@ -35,7 +39,16 @@ def plot(scores, mean_scores):
 
 
 class Agent:
+    # Represents the intelligent agent controlling the Snake game.
     def __init__(self, settings, memory, model):
+        """
+        Initializes the Agent with specified settings, memory, and model.
+
+        Args:
+            settings (dict): Dictionary containing various settings.
+            memory (deque): Replay memory storing past experiences.
+            model (Linear_QNet): Neural network model for Q-learning.
+        """
         self.n_games = settings['GAMES']
         self.gamma = settings['GAMMA']
         self.memory = memory
@@ -53,6 +66,16 @@ class Agent:
         self.mode = settings['MODE']
 
     def get_state(self, game, block_size):
+        """
+        Generates the current state representation based on the game state.
+
+        Args:
+            game (SnakeGameAI): The Snake game instance.
+            block_size (int): Size of the game block.
+
+        Returns:
+            np.array: Array representing the current state.
+        """
         head = game.snake[0]  # point in x,y form of head
         point_l = Point(head.x - block_size, head.y)
         point_r = Point(head.x + block_size, head.y)
@@ -131,6 +154,15 @@ class Agent:
 
 
 def load_memory(settings):
+    """
+    Loads the replay memory from a file or creates a new one if not found.
+
+    Args:
+        settings (dict): Dictionary containing various settings.
+
+    Returns:
+        deque: Replay memory.
+    """
     memory_file_name = settings['FILE_NAME'] + ".pth_memory.txt"
     # Create the full path to the memory file
     memory_file_path = os.path.join('./models', str(settings['ID']), memory_file_name)
@@ -148,6 +180,15 @@ def load_memory(settings):
 
 
 def load_plot(settings):
+    """
+    Loads the plot data from a file or initializes with default values.
+
+    Args:
+        settings (dict): Dictionary containing various settings.
+
+    Returns:
+        tuple: Tuple containing plot scores, mean scores, total score, and record.
+    """
     # Construct the file name for the plot data based on the FILE_NAME from settings
     plot_file_name = settings['FILE_NAME'] + ".pth_plot.txt"
 
@@ -175,7 +216,16 @@ def load_plot(settings):
     return plot_scores, plot_mean_scores, total_score, record
 
 
-def main(settings):
+def start(settings):
+    """
+    Initiates the Snake game based on the specified settings and mode.
+
+    Args:
+        settings (dict): Dictionary containing various settings.
+
+    Returns:
+        None
+    """
     mode = settings['MODE']
 
     if mode == "CONTINUE":
@@ -241,60 +291,8 @@ def main(settings):
             if mode != 'VIEW':
                 mean_score = total_score / agent.n_games
             else:
-                mean_score = total_score / (agent.n_games - games)
+                mean_score = total_score / (agent.n_games - settings['GAMES'])
             plot_mean_scores.append(mean_score)
             plot(plot_scores, plot_mean_scores)
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Agent settings')
-    parser.add_argument('--max_memory', type=int, default=100_000, help='Maximum number of experiences in deque')
-    parser.add_argument('--batch_size', type=int, default=1000, help='Sample size from MAX_MEMORY')
-    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
-    parser.add_argument('--gamma', type=float, default=0.9, help='Gamma value')
-    parser.add_argument('--input_layer_size', type=int, default=11, help='Input layer size')
-    parser.add_argument('--hidden_layer_size', type=int, default=2048, help='Hidden layer size')
-    parser.add_argument('--output_layer_size', type=int, default=3, help='Output layer size')
-    parser.add_argument('--random1', type=int, default=80, help='Random value 1')
-    parser.add_argument('--random2', type=int, default=200, help='Random value 2')
-    parser.add_argument('--mode', type=str, default="NEW", help='Mode value, NEW, CONTINUE, VIEW')
-    parser.add_argument('--file_name', type=str,
-                        default='MM100000_BS1000_LR0.001_gamma0.9_HLS128_R180_R2200_GAMES305_ID92935',
-                        help='File name for saving/loading')
-    parser.add_argument('--block_size', type=int, default=100, help='size of block in pixels')
-
-    args = parser.parse_args()
-
-    if args.mode == 'CONTINUE':
-        games_match = re.search(r'_GAMES(\d+)_', args.file_name)
-        games = int(games_match.group(1)) if games_match else print("couldnt find GAMES in file name")
-        ID_match = re.search(r'_ID(\d+)', args.file_name)
-        ID = int(ID_match.group(1)) if ID_match else print("couldnt find ID in file name")
-    elif args.mode == 'VIEW':
-        games_match = re.search(r'_GAMES(\d+)_', args.file_name)
-        games = int(games_match.group(1)) if games_match else print("couldnt find GAMES in file name")
-        ID_match = re.search(r'_ID(\d+)', args.file_name)
-        ID = int(ID_match.group(1)) if ID_match else print("couldnt find ID in file name")
-    else:  # args.mode == 'NEW':
-        games = 0
-        seed = int(time.time())  # Get current time as an integer for seed
-        ID = random.randint(1, 100_000)
-
-    settings_dict = {
-        'MAX_MEMORY': args.max_memory,
-        'BATCH_SIZE': args.batch_size,
-        'LR': args.lr,
-        'GAMMA': args.gamma,
-        'INPUT_LAYER_SIZE': args.input_layer_size,
-        'HIDDEN_LAYER_SIZE': args.hidden_layer_size,
-        'OUTPUT_LAYER_SIZE': args.output_layer_size,
-        'RANDOM1': args.random1,
-        'RANDOM2': args.random2,
-        'MODE': args.mode,
-        'FILE_NAME': args.file_name,
-        'GAMES': games,
-        'ID': ID,
-        'BLOCK_SIZE': args.block_size
-    }
-
-    main(settings_dict)

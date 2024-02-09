@@ -1,5 +1,3 @@
-# model.py
-
 import torch
 import torch.nn as nn  # contains classes to help build neural network
 import torch.optim as optim
